@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tetris Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
+    <style>
+        body { text-align: center; background-color: black; color: white; }
+        canvas { background: #111; display: block; margin: auto; }
+    </style>
+</head>
+<body>
+    <h1 class="text-2xl font-bold mt-4">Juego de Tetris</h1>
+    <canvas id="tetris" width="300" height="450"></canvas>
+    <p class="mt-2">Puntuación: <span id="score">0</span></p>
+    <button onclick="location.reload()" class="mt-2 p-2 bg-blue-500 text-white rounded">Reiniciar</button>
+    <p id="gameOver" class="hidden text-red-500 text-xl font-bold mt-4">Game Over</p>
+    
+    <script>
+        const canvas = document.getElementById("tetris");
+        const ctx = canvas.getContext("2d");
+        const ROWS = 15, COLS = 10, SIZE = 30;
+        let board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+        let score = 0;
+        let gameOver = false;
+        document.getElementById("score").innerText = score;
+        
+        const SHAPES = [
+            [[1, 1, 1, 1]],
+            [[1, 1], [1, 1]],
+            [[0, 1, 0], [1, 1, 1]],
+            [[1, 1, 0], [0, 1, 1]],
+            [[0, 1, 1], [1, 1, 0]],
+        ];
+        
+        class Piece {
+            constructor(shape, color) {
+                this.shape = shape;
+                this.color = color;
+                this.x = 4;
+                this.y = 0;
+            }
+            draw() {
+                ctx.fillStyle = this.color;
+                this.shape.forEach((row, i) => row.forEach((val, j) => {
+                    if (val) ctx.fillRect((this.x + j) * SIZE, (this.y + i) * SIZE, SIZE, SIZE);
+                }));
+            }
+            moveDown() {
+                if (gameOver) return;
+                this.y++; 
+                if (this.collision()) {
+                    this.y--; 
+                    this.merge(); 
+                    if (this.y <= 0) {
+                        endGame();
+                        return;
+                    }
+                    newPiece();
+                }
+            }
+            move(dir) { this.x += dir; if (this.collision()) this.x -= dir; }
+            rotate() {
+                const prevShape = this.shape;
+                this.shape = this.shape[0].map((_, i) => this.shape.map(row => row[i]).reverse());
+                if (this.collision()) this.shape = prevShape;
+            }
+            collision() {
+                return this.shape.some((row, i) => row.some((val, j) => val && (board[this.y + i]?.[this.x + j] !== 0 || this.y + i >= ROWS)));
+            }
+            merge() {
+                this.shape.forEach((row, i) => row.forEach((val, j) => { if (val) board[this.y + i][this.x + j] = this.color; }));
+                clearLines();
+            }
+        }
+        
+        function clearLines() {
+            board = board.filter(row => row.some(val => !val));
+            while (board.length < ROWS) board.unshift(Array(COLS).fill(0));
+            score += 10;
+            document.getElementById("score").innerText = score;
+        }
+        
+        function endGame() {
+            gameOver = true;
+            document.getElementById("gameOver").classList.remove("hidden");
+        }
+        
+        let currentPiece;
+        function newPiece() {
+            if (gameOver) return;
+            const shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+            const colors = ["red", "blue", "green", "yellow", "purple"];
+            currentPiece = new Piece(shape, colors[Math.floor(Math.random() * colors.length)]);
+        }
+        
+        function drawBoard() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            board.forEach((row, i) => row.forEach((val, j) => {
+                if (val) {
+                    ctx.fillStyle = val;
+                    ctx.fillRect(j * SIZE, i * SIZE, SIZE, SIZE);
+                }
+            }));
+            currentPiece.draw();
+        }
+        
+        function update() {
+            if (gameOver) return;
+            currentPiece.moveDown();
+            drawBoard();
+            setTimeout(update, 500 - Math.min(score, 400));
+        }
+        
+        document.addEventListener("keydown", (e) => {
+            if (gameOver) return;
+            if (e.key === "ArrowLeft") currentPiece.move(-1);
+            if (e.key === "ArrowRight") currentPiece.move(1);
+            if (e.key === "ArrowDown") currentPiece.moveDown();
+            if (e.key === "ArrowUp") currentPiece.rotate();
+            drawBoard();
+        });
+        
+        newPiece();
+        update();
+    </script>
+</body>
+</html>
